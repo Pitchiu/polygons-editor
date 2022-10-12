@@ -6,6 +6,8 @@
 #include <QWidget>
 #include <QList>
 
+#include "graphicalgorithms.h"
+
 #define MINDIST 10
 
 class Polygon;
@@ -15,13 +17,20 @@ class ScribbleArea : public QWidget
     Q_OBJECT
 
 public:
+
     ScribbleArea(QWidget *parent = 0);
     void setPenColor(const QColor &newColor);
     void setPenWidth(int newWidth);
 
-    bool isModified() const { return modified; }
     QColor penColor() const { return myPenColor; }
     int penWidth() const { return myPenWidth; }
+    enum Button
+    {
+        Create,
+        Move,
+        Delete
+    };
+    Button activeButton;
 
 public slots:
     void clearImage();
@@ -30,28 +39,18 @@ protected:
     void mousePressEvent(QMouseEvent *event);
     void mouseMoveEvent(QMouseEvent *event);
     void mouseReleaseEvent(QMouseEvent *event);
-    void drawPoint(const QPoint &endPoint);
     void paintEvent(QPaintEvent *event);
     void resizeEvent(QResizeEvent *event);
 
-    enum Mode
-    {
-        Off,
-        Scribbling
-    };
-
 private:
-    void drawLine(const QPoint &startPoint, const QPoint &endPoint);
-    void resizeImage(QImage *image, const QSize &newSize);
+    void drawPoint(QPainter *painter, const QPoint &point);
+    void drawLine(QPainter *painter, const QLine &l);
     void drawImage();
+    void resizeImage(QImage *image, const QSize &newSize);
+    Polygon* detectClickedPolygon(QPoint point);
 
-    bool modified;
     bool scribbling;
     int myPenWidth;
-
-    //this should be moved
-    qreal distance(QPointF a, QPointF b);
-    qreal distance(QPoint a, QLineF b);
 
     QColor myPenColor;
     QImage image;
@@ -60,7 +59,13 @@ private:
     Polygon* activePolygon;
 
     QList<Polygon> Polygons;
-    Mode mode;
+
+    enum Mode
+    {
+        Off,
+        Scribbling
+    };
+    Mode mode;    
 };
 
 class Polygon

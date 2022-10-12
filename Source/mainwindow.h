@@ -5,12 +5,13 @@
 
 class ScribbleArea;
 
-class MainWindow : public QMainWindow
+class MainWindow : public QWidget
 {
     Q_OBJECT
 
 public:
-    MainWindow();
+    ~MainWindow();
+    explicit MainWindow(QWidget *parent = 0);
 
 private:
     ScribbleArea *scribbleArea;

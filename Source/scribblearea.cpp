@@ -4,13 +4,12 @@
 ScribbleArea::ScribbleArea(QWidget *parent)
     : QWidget(parent)
 {
-    // Roots the widget to the top left even if resized
-    setAttribute(Qt::WA_StaticContents);
     setMouseTracking(true);
-    myPenWidth = 5;
+    myPenWidth = 1;
     myPenColor = Qt::blue;
     mode = Off;
     activePolygon = NULL;
+    activeButton = Create;
 }
 
 void ScribbleArea::setPenColor(const QColor &newColor)
@@ -31,25 +30,28 @@ void ScribbleArea::clearImage()
 
 void ScribbleArea::mousePressEvent(QMouseEvent *event)
 {
-    if (event->button() == Qt::LeftButton)
+    if (event->button() == Qt::LeftButton && activeButton==Create)
     {
-        if(activePolygon!=NULL && distance(event->pos(), activePolygon->Points.first()) < MINDIST)
+        // First point hit!
+        if(activePolygon!=NULL && GraphicAlgorithms::distance(event->pos(), activePolygon->Points.first()) < MINDIST)
         {
             mode = Off;
             activePolygon->isClosed = true;
             activePolygon->Lines << QLine(activePolygon->Points.last(), activePolygon->Points.first());
             activePolygon = NULL;
+            drawImage();
             return;
         }
 
         for(auto polIt = Polygons.begin(); polIt != Polygons.end(); ++polIt)
             for(auto lineIt = polIt->Lines.begin(); lineIt != polIt->Lines.end(); ++lineIt)
-                if(distance(event->pos(), *lineIt) < MINDIST) return;
+                if(GraphicAlgorithms::distance(event->pos(), *lineIt) < MINDIST) return;
 
         if (mode==Off)
         {
             mode = Scribbling;
         }
+
         else if(activePolygon == NULL)
         {
             Polygon p;
@@ -65,11 +67,45 @@ void ScribbleArea::mousePressEvent(QMouseEvent *event)
         }
         startPoint = event->pos();
     }
+
+    else if(activeButton==Move)
+    {
+        if(activePolygon != NULL)
+        {
+            activePolygon = NULL;
+            return;
+        }
+        activePolygon = detectClickedPolygon(event->pos());
+        if(activePolygon!=NULL) startPoint = event->pos();
+    }
+    else if(activeButton==Delete)
+    {
+
+    }
+}
+
+Polygon* ScribbleArea::detectClickedPolygon(QPoint point)
+{
+    for(auto polIt = Polygons.begin(); polIt != Polygons.end(); ++polIt)
+        for(auto lineIt = polIt->Lines.begin(); lineIt != polIt->Lines.end(); ++lineIt)
+            if(GraphicAlgorithms::distance(point, *lineIt) < MINDIST)
+                return &*polIt;
+    return NULL;
 }
 
 void ScribbleArea::mouseMoveEvent(QMouseEvent *event)
 {
-    if (mode == Scribbling)
+    if(activeButton == Move && activePolygon!=NULL)
+    {
+        QPoint diff(event->pos().x() - startPoint.x(), event->pos().y() - startPoint.y());
+        for(int i=0; i < activePolygon->Lines.count(); i++)
+            activePolygon->Lines[i] = QLine(activePolygon->Lines[i].p1()+diff, activePolygon->Lines[i].p2()+diff);
+        for(int i=0; i<activePolygon->Points.count(); i++)
+            activePolygon->Points[i] += diff;
+        startPoint = event->pos();
+        drawImage();
+    }
+    else if (activeButton == Create && mode == Scribbling)
     {
         lastPoint = event->pos();
         drawImage();
@@ -88,33 +124,38 @@ void ScribbleArea::paintEvent(QPaintEvent *event)
     painter.drawImage(dirtyRect, image, dirtyRect);
 }
 
-void ScribbleArea::drawPoint(const QPoint &endPoint)
-{
-
-}
-
 void ScribbleArea::drawImage()
 {
     image.fill(qRgb(255, 255, 255));
     QPainter painter(&image);
-    painter.setPen(QPen(myPenColor, myPenWidth, Qt::SolidLine, Qt::RoundCap,
-                        Qt::RoundJoin));
-    for(auto it = Polygons.begin(); it!=Polygons.end(); ++it)
-    painter.drawLines(it->Lines);
+    for(auto polIt = Polygons.begin(); polIt!=Polygons.end(); ++polIt)
+    {
+        painter.setPen(QPen(myPenColor, myPenWidth, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+        for(auto lineIt = polIt->Lines.begin(); lineIt != polIt->Lines.end(); ++lineIt)
+            drawLine(&painter, *lineIt);
+
+        painter.setPen(QPen(myPenColor, MINDIST, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+        for(auto pointIt = polIt->Points.begin(); pointIt != polIt->Points.end(); ++pointIt)
+            drawPoint(&painter, *pointIt);
+    }
+    painter.setPen(QPen(myPenColor, myPenWidth, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
     if(mode==Scribbling)
-        painter.drawLine(startPoint, lastPoint);
+    {
+
+        drawLine(&painter, QLine(startPoint, lastPoint));
+    }
+
     update();
 }
 
-void ScribbleArea::drawLine(const QPoint &startPoint, const QPoint &endPoint)
+void ScribbleArea::drawPoint(QPainter *painter, const QPoint &point)
 {
-    QPainter painter(&image);
-    painter.setPen(QPen(myPenColor, myPenWidth, Qt::SolidLine, Qt::RoundCap,
-                        Qt::RoundJoin));
-    painter.drawLine(lastPoint, endPoint);
+    painter->drawPoint(point);
+}
 
-    int rad = (myPenWidth / 2) + 2;
-    update(QRect(lastPoint, endPoint).normalized().adjusted(-rad, -rad, +rad, +rad));
+void ScribbleArea::drawLine(QPainter *painter, const QLine &l)
+{
+    painter->drawLine(l.p1(), l.p2());
 }
 
 void ScribbleArea::resizeImage(QImage *image, const QSize &newSize)
@@ -138,28 +179,4 @@ void ScribbleArea::resizeEvent(QResizeEvent *event)
         update();
     }
     QWidget::resizeEvent(event);
-}
-
-//this functions should be moved to some helper class
-qreal ScribbleArea::distance(QPointF a, QPointF b)
-{
-    return QLineF(a, b).length();
-}
-
-QPointF nearestPoint(const QLineF& line, const QPointF& point);
-
-//QPointF nearestPoint(const QLineF& line, const QPointF& point);
-qreal ScribbleArea::distance(QPoint a, QLineF b)
-{
-    qreal dist = distance(a, nearestPoint(b, a));
-    return dist;
-}
-
-QPointF nearestPoint(const QLineF& line, const QPointF& point)
-{
-QLineF perpendicLine(point,QPointF(point.x(),0.0));
-perpendicLine.setAngle(90.0+line.angle());
-QPointF result;
-line.intersects(perpendicLine,&result);
-return result;
 }

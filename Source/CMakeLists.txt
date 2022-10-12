@@ -19,6 +19,8 @@ set(PROJECT_SOURCES
         mainwindow.cpp
         scribblearea.h
         scribblearea.cpp
+        graphicalgorithms.h
+        graphicalgorithms.cpp
         mainwindow.h
         mainwindow.ui
 )
