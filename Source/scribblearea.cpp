@@ -9,7 +9,7 @@ ScribbleArea::ScribbleArea(QWidget *parent)
     myPenColor = Qt::blue;
     mode = Off;
     activePolygon = NULL;
-    activeButton = Create;
+    activeButton = createPolygon;
 }
 
 void ScribbleArea::setPenColor(const QColor &newColor)
@@ -30,7 +30,7 @@ void ScribbleArea::clearImage()
 
 void ScribbleArea::mousePressEvent(QMouseEvent *event)
 {
-    if (event->button() == Qt::LeftButton && activeButton==Create)
+    if (event->button() == Qt::LeftButton && activeButton==createPolygon)
     {
         // First point hit!
         if(activePolygon!=NULL && GraphicAlgorithms::distance(event->pos(), activePolygon->Points.first()) < MINDIST)
@@ -68,7 +68,7 @@ void ScribbleArea::mousePressEvent(QMouseEvent *event)
         startPoint = event->pos();
     }
 
-    else if(activeButton==Move)
+    else if(activeButton==movePolygon)
     {
         if(activePolygon != NULL)
         {
@@ -78,7 +78,7 @@ void ScribbleArea::mousePressEvent(QMouseEvent *event)
         activePolygon = detectClickedPolygon(event->pos());
         if(activePolygon!=NULL) startPoint = event->pos();
     }
-    else if(activeButton==Delete)
+    else if(activeButton==deletePolygon)
     {
 
     }
@@ -95,7 +95,7 @@ Polygon* ScribbleArea::detectClickedPolygon(QPoint point)
 
 void ScribbleArea::mouseMoveEvent(QMouseEvent *event)
 {
-    if(activeButton == Move && activePolygon!=NULL)
+    if(activeButton == movePolygon && activePolygon!=NULL)
     {
         QPoint diff(event->pos().x() - startPoint.x(), event->pos().y() - startPoint.y());
         for(int i=0; i < activePolygon->Lines.count(); i++)
@@ -105,7 +105,7 @@ void ScribbleArea::mouseMoveEvent(QMouseEvent *event)
         startPoint = event->pos();
         drawImage();
     }
-    else if (activeButton == Create && mode == Scribbling)
+    else if (activeButton == createPolygon && mode == Scribbling)
     {
         lastPoint = event->pos();
         drawImage();
@@ -141,7 +141,6 @@ void ScribbleArea::drawImage()
     painter.setPen(QPen(myPenColor, myPenWidth, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
     if(mode==Scribbling)
     {
-
         drawLine(&painter, QLine(startPoint, lastPoint));
     }
 

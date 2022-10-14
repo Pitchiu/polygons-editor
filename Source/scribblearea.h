@@ -26,11 +26,25 @@ public:
     int penWidth() const { return myPenWidth; }
     enum Button
     {
-        Create,
-        Move,
-        Delete
+        createPolygon,
+        insertVertex,
+        movePolygon,
+        moveLineVertex,
+        setLength,
+        addRelation,
+        unsetLength,
+        deleteRelation,
+        deleteVertex,
+        deletePolygon
     };
     Button activeButton;
+
+    enum LineAlgorithm
+    {
+        defaultAlgorithm,
+        BresenhamAlgorithm
+    };
+    LineAlgorithm activeAlgorithm;
 
 public slots:
     void clearImage();
