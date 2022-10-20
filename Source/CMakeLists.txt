@@ -21,8 +21,13 @@ set(PROJECT_SOURCES
         scribblearea.cpp
         graphicalgorithms.h
         graphicalgorithms.cpp
+        screenstate.h
+        screenstate.cpp
+        polygon.h
+        polygon.cpp
+        settings.h
+        settings.cpp
         mainwindow.h
-        mainwindow.ui
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)

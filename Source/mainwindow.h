@@ -2,8 +2,7 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
-
-class ScribbleArea;
+#include "scribblearea.h"
 
 class MainWindow : public QWidget
 {
@@ -12,8 +11,6 @@ class MainWindow : public QWidget
 public:
     ~MainWindow();
     explicit MainWindow(QWidget *parent = 0);
-
-private:
-    ScribbleArea *scribbleArea;
+    ScribbleArea scribbleArea;
 };
 #endif // MAINWINDOW_H
