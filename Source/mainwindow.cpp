@@ -110,7 +110,6 @@ MainWindow::MainWindow(QWidget *parent)  : QWidget(parent)
     grid->addWidget(rightBox, 0, 1);
     setLayout(grid);
     resize(1200,600);
-
 }
 
 MainWindow::~MainWindow()

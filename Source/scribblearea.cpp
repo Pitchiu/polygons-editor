@@ -52,7 +52,7 @@ void ScribbleArea::drawImage()
         for(auto lineIt = polIt->Lines.begin(); lineIt != polIt->Lines.end(); ++lineIt)
             drawLine(&painter, *lineIt);
 
-        painter.setPen(QPen(Qt::black, MINDIST, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+        painter.setPen(QPen(Qt::black, MINDIST*3, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
         for(auto pointIt = polIt->Points.begin(); pointIt != polIt->Points.end(); ++pointIt)
             painter.drawPoint(*pointIt);
     }
@@ -60,6 +60,25 @@ void ScribbleArea::drawImage()
     {
         painter.setPen(QPen(Qt::red, 1, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
         drawLine(&painter, *screenstate.activeLineRelation);
+    }
+    painter.setPen(QPen(Qt::black, 1, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    QFont font = painter.font() ;
+    font.setPointSize(font.pointSize() + 10);
+    painter.setFont(font);
+
+    // drawing lengths
+    for(int i=0; i<screenstate.Lengths.size(); i++)
+        painter.drawText(screenstate.Lengths[i].first->center(),
+            QString(std::to_string((int)screenstate.Lengths[i].second).c_str()));
+
+    // drawing relations
+    for(int i=0; i<screenstate.Relations.size(); i++)
+    {
+        painter.drawText(screenstate.Relations[i].first->center(),
+            QString(("||" + std::to_string(i+1)).c_str()));
+
+        painter.drawText(screenstate.Relations[i].second->center(),
+            QString(("||" + std::to_string(i+1)).c_str()));
     }
     update();
 }

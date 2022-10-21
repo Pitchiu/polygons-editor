@@ -21,13 +21,18 @@ public:
     QPoint startPoint;
     QPoint lastPoint;
     QVector<Polygon> Polygons;
+    QVector<std::pair<QLine*, QLine* >> Relations;
+    QVector<std::pair<QLine*, double>> Lengths;
     QLine* activeLineRelation;
 
 private:
-    QVector<std::pair<QLine*, QLine* >> Relations;
-    QVector<std::pair<QLine*, double>> Lengths;
-
     Polygon* activePolygon;
+    QLine* activeLine;
+    QPoint* activePoint;
+
+// this is for moving points and lines
+    QLine* neighbourLines[2];
+    QPoint* neighbourPoints[2];
 
     Polygon* detectClickedPolygon(const QPoint &point);
     QLine* detectClickedLine(const QPoint &point);

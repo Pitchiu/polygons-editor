@@ -22,6 +22,8 @@ public:
     ScribbleArea(QWidget *parent = 0);
     void clearImage();
     ScreenState screenstate;
+    void drawImage();
+
 
 private:
 
@@ -31,7 +33,6 @@ private:
     void resizeEvent(QResizeEvent *event);
 
     void drawLine(QPainter *painter, const QLine &l);
-    void drawImage();
     void resizeImage(QImage *image, const QSize &newSize);
 
     QImage image;
