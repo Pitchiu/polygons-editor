@@ -6,8 +6,11 @@ class Polygon
 {
 public:
     Polygon();
-    QList<QPoint> Points;
-    QList<QLine> Lines;
+    QVector<QPoint> Points;
+    QVector<QLine> Lines;
+
+    friend bool operator ==(const Polygon& p1, const Polygon& p2);
 };
 
+bool operator ==(const Polygon& p1, const Polygon& p2);
 #endif // POLYGON_H

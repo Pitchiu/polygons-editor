@@ -5,12 +5,21 @@
 
 using namespace algorithms;
 
+QPoint* ScreenState::detectClickedPoint(const QPoint &point)
+{
+    for(auto polIt = Polygons.begin(); polIt != Polygons.end(); ++polIt)
+        for(auto pointIt = polIt->Points.begin(); pointIt != polIt->Points.end(); ++pointIt)
+            if(distance(point, *pointIt) < MINDIST*3)
+                return &*pointIt;
+    return NULL;
+}
+
 QLine* ScreenState::detectClickedLine(const QPoint &point)
 {
     for(auto polIt = Polygons.begin(); polIt != Polygons.end(); ++polIt)
         for(auto lineIt = polIt->Lines.begin(); lineIt != polIt->Lines.end(); ++lineIt)
             if(distance(point, *lineIt) < MINDIST*3)
-                return  &*lineIt;
+                return &*lineIt;
     return NULL;
 }
 
@@ -64,7 +73,31 @@ bool ScreenState::handleCreatePolygonClick(const QPoint &clickedPosition)
 
 bool ScreenState::handleInsertVertexClick(const QPoint &clickedPosition)
 {
-    return false;
+    if(detectClickedPoint(clickedPosition) != NULL)
+        return false;
+    Polygon *polygon = detectClickedPolygon(clickedPosition);
+
+    if(polygon==NULL)
+        return false;
+
+    QLine* line = detectClickedLine(clickedPosition);
+
+    if(line==NULL)
+        return false;
+
+    QPointF nearestF = nearestPoint(*line, clickedPosition);
+    QPoint nearest = QPoint(nearestF.x(), nearestF.y());
+
+    // update Points
+    polygon->Points.insert(polygon->Points.indexOf(line->p2()), nearest);
+    QPoint oldFirstPoint = line->p1();
+    line->setP1(nearest);
+
+    // insert new line before old line
+    int clickedIndex = polygon->Lines.indexOf(*line);
+    polygon->Lines.insert(clickedIndex, QLine(oldFirstPoint, nearest));
+    // TODO: run polygon correcting and maybe remove constraints
+    return true;
 }
 
 bool ScreenState::handleMovePolygonClick(const QPoint &clickedPosition)
@@ -81,6 +114,7 @@ bool ScreenState::handleMovePolygonClick(const QPoint &clickedPosition)
 
 bool ScreenState::handleMoveLineVertexClick(const QPoint &clickedPosition)
 {
+    // TODO
     return false;
 }
 
@@ -138,22 +172,104 @@ bool ScreenState::handleAddRelationClick(const QPoint &clickedPosition)
 
 bool ScreenState::handleUnsetLengthClick(const QPoint &clickedPosition)
 {
+    QLine* line = detectClickedLine(clickedPosition);
+    return deleteFromLengths(line);
+}
+
+bool ScreenState::deleteFromLengths(QLine *line)
+{
+    if(line==NULL)
+        return false;
+
+    for(int i=0; i<Lengths.size(); i++)
+        if(Lengths[i].first==line)
+        {
+            Lengths.removeAt(i);
+            return true;
+        }
     return false;
+}
+
+bool ScreenState::deleteFromRelation(QLine *line)
+{
+    if(line==NULL)
+        return false;
+
+    bool changed = false;
+    for(int i=0; i<Relations.size(); i++)
+        if(Relations[i].first == line || Relations[i].second == line)
+        {
+            Relations.removeAt(i);
+            i--;
+            changed = true;
+        }
+    return changed;
+}
+
+bool ScreenState::deletePolygonObject(Polygon *p)
+{
+    for(auto lineIt = p->Lines.begin(); lineIt != p->Lines.end(); ++lineIt)
+    {
+        deleteFromRelation(&*lineIt);
+        deleteFromLengths(&*lineIt);
+    }
+    Polygons.removeOne(*p);
+    return true;
 }
 
 bool ScreenState::handleDeleteRelationClick(const QPoint &clickedPosition)
 {
-    return false;
+    QLine* line = detectClickedLine(clickedPosition);
+    return deleteFromRelation(line);
 }
 
 bool ScreenState::handleDeleteVertexClick(const QPoint &clickedPosition)
 {
-    return false;
+    QPoint* point = detectClickedPoint(clickedPosition);
+    if(point == NULL)
+        return false;
+
+    Polygon* polygon = detectClickedPolygon(clickedPosition);
+    if(polygon==NULL)
+        return false;
+
+    if(polygon->Lines.size()<=3)
+        return deletePolygonObject(polygon);
+
+    QLine* l1;
+    QLine* l2;
+    int i = 0;
+    for(; i<polygon->Lines.size(); i++)
+    {
+        if(polygon->Lines[i].p2() == *point)
+        {
+            l1 = &polygon->Lines[i];
+            if(i==polygon->Lines.size()-1)
+                i=0;
+            else
+                i++;
+
+            l2 = &polygon->Lines[i];
+            break;
+        }
+    }
+    if(l1==NULL || l2==NULL)
+        return false;
+
+    QLine newLine(l1->p1(), l2->p2());
+    polygon->Lines.insert(i, newLine);
+
+    polygon->Points.removeOne(*point);
+    polygon->Lines.removeOne(*l1);
+    polygon->Lines.removeOne(*l2);
+    return true;
 }
 
 bool ScreenState::handleDeletePolygonClick(const QPoint &clickedPosition)
 {
-    return false;
+    Polygon* p = detectClickedPolygon(clickedPosition);
+    if(p==NULL) return false;
+    return deletePolygonObject(p);
 }
 
 

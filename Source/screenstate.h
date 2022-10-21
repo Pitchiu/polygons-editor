@@ -20,17 +20,23 @@ public:
     Settings settings;
     QPoint startPoint;
     QPoint lastPoint;
-    QList<Polygon> Polygons;
+    QVector<Polygon> Polygons;
     QLine* activeLineRelation;
 
 private:
-    QList<std::pair<QLine*, QLine* >> Relations;
-    QList<std::pair<QLine*, double>> Lengths;
+    QVector<std::pair<QLine*, QLine* >> Relations;
+    QVector<std::pair<QLine*, double>> Lengths;
 
     Polygon* activePolygon;
 
     Polygon* detectClickedPolygon(const QPoint &point);
     QLine* detectClickedLine(const QPoint &point);
+    QPoint *detectClickedPoint(const QPoint &point);
+
+    bool deleteFromRelation(QLine *line);
+    bool deleteFromLengths(QLine *line);
+    bool deletePolygonObject(Polygon *p);
+
 
     // handlers
     bool handleCreatePolygonClick(const QPoint &clickedPosition);
