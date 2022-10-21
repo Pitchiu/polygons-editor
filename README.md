@@ -1,2 +1,2 @@
-# polynomial_editor
+# polygons_editor
 Project created using qt toolkit.
