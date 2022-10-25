@@ -1,0 +1,10 @@
+Instruction:
+Choose an option and click on scribble area.
+
+Used algorithm:
+To implement relation algorithm, I have introduced value representing global
+error for relations. It checks how much current lenghts and angles differ from 
+expected values and sum it.
+Relation algorithm is moving every vertex in 8 directions by 1 px and calculate global error in order to check which direction reduced global error most significantly.
+Algorithm does it constantly for every vertex apart from protected ones (e.g. we don't want to correct position of vertex which is being held) until global error is reduced to threshold value - or moving in every direction does not reduce error anymore.
+
