@@ -39,7 +39,7 @@ void ScribbleArea::drawImage()
 {
     image.fill(qRgb(255, 255, 255));
     QPainter painter(&image);
-    painter.setPen(QPen(Qt::black, 1, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    painter.setPen(QPen(Qt::black, LINETHICKNESS, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
 
     if(screenstate.settings.activeButton==createPolygon && screenstate.settings.activeMode==On)
     {
@@ -48,17 +48,17 @@ void ScribbleArea::drawImage()
 
     for(auto polIt = screenstate.Polygons.begin(); polIt!=screenstate.Polygons.end(); ++polIt)
     {
-        painter.setPen(QPen(Qt::black, 1, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+        painter.setPen(QPen(Qt::black, LINETHICKNESS, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
         for(auto lineIt = polIt->Lines.begin(); lineIt != polIt->Lines.end(); ++lineIt)
             drawLine(&painter, *lineIt);
 
-        painter.setPen(QPen(Qt::black, MINDIST*3, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+        painter.setPen(QPen(Qt::black, POINTRADIUS, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
         for(auto pointIt = polIt->Points.begin(); pointIt != polIt->Points.end(); ++pointIt)
             painter.drawPoint(*pointIt);
     }
     if(screenstate.activeLineRelation!=NULL)
     {
-        painter.setPen(QPen(Qt::red, 1, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+        painter.setPen(QPen(Qt::red, LINETHICKNESS, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
         drawLine(&painter, *screenstate.activeLineRelation);
     }
     painter.setPen(QPen(Qt::black, 1, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));

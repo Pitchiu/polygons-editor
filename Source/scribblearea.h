@@ -9,8 +9,6 @@
 #include "graphicalgorithms.h"
 #include "screenstate.h"
 
-#define MINDIST 5
-
 class Polygon;
 
 class ScribbleArea : public QWidget

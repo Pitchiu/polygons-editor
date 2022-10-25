@@ -1,35 +1,46 @@
 #include "screenstate.h"
 #include "graphicalgorithms.cpp"
-
-#define MINDIST 5
+#include <iostream>
 
 using namespace algorithms;
 
-QPoint* ScreenState::detectClickedPoint(const QPoint &point)
+
+Entity ScreenState::detectClickedEntity(const QPoint &point)
 {
+    Entity ent;
+    QPoint* bestPoint = NULL;
+    Polygon* bestPolygon = NULL;
+
     for(auto polIt = Polygons.begin(); polIt != Polygons.end(); ++polIt)
         for(auto pointIt = polIt->Points.begin(); pointIt != polIt->Points.end(); ++pointIt)
-            if(distance(point, *pointIt) < MINDIST*5)
-                return &*pointIt;
-    return NULL;
-}
+            if(distance(point, *pointIt) < POINTRADIUS && (bestPoint==NULL || distance(point, *pointIt) < distance(point, *bestPoint)))
+            {
+                bestPoint = &*pointIt;
+                bestPolygon = &*polIt;
+            }
+    if(bestPolygon != NULL)
+    {
+        ent.polygon = bestPolygon;
+        ent.point = bestPoint;
+        return ent;
+    }
 
-QLine* ScreenState::detectClickedLine(const QPoint &point)
-{
+    QLine* bestLine = NULL;
+
     for(auto polIt = Polygons.begin(); polIt != Polygons.end(); ++polIt)
         for(auto lineIt = polIt->Lines.begin(); lineIt != polIt->Lines.end(); ++lineIt)
-            if(distance(point, *lineIt) < MINDIST*3)
-                return &*lineIt;
-    return NULL;
-}
+            if(distance(point, *lineIt) < LINEBORDER && (bestLine==NULL || distance(point, *lineIt) < distance(point, *bestLine)))
+            {
+                bestLine = &*lineIt;
+                bestPolygon = &*polIt;
+            }
 
-Polygon* ScreenState::detectClickedPolygon(const QPoint &point)
-{
-    for(auto polIt = Polygons.begin(); polIt != Polygons.end(); ++polIt)
-        for(auto lineIt = polIt->Lines.begin(); lineIt != polIt->Lines.end(); ++lineIt)
-            if(distance(point, *lineIt) < MINDIST)
-                return &*polIt;
-    return NULL;
+    if(bestPolygon != NULL)
+    {
+        ent.polygon = bestPolygon;
+        ent.line = bestLine;
+    }
+    return ent;
 }
 
 ScreenState::ScreenState()
@@ -42,7 +53,7 @@ ScreenState::ScreenState()
     QPoint p1(200,200), p2(200,400), p3(400,200);
     Polygon pol1;
     pol1.Points << p1 << p2 << p3;
-    pol1.Lines << QLine(p1, p2) << QLine(p2, p3) << QLine(p3, p1);
+    pol1.Lines << QLine(p1,p2) << QLine(p2,p3) << QLine(p3,p1);
     Polygons << pol1;
 
     QPoint q1(600,400), q2(800,400), q3(600,500);
@@ -50,12 +61,16 @@ ScreenState::ScreenState()
     pol2.Points << q1 << q2 << q3;
     pol2.Lines << QLine(q1, q2) << QLine(q2, q3) << QLine(q3, q1);
     Polygons << pol2;
+
+    Relations << std::make_pair(&Polygons[0].Lines[1], &Polygons[1].Lines[1]);
+    Lengths << std::make_pair(&Polygons[0].Lines[2], 300);
+    fixPolygons();
 }
 
 bool ScreenState::handleCreatePolygonClick(const QPoint &clickedPosition)
 {
     // First point hit!
-    if(activePolygon!=NULL && distance(clickedPosition, activePolygon->Points.first()) < MINDIST)
+    if(activePolygon!=NULL && distance(clickedPosition, activePolygon->Points.first()) < POINTRADIUS)
     {
         settings.activeMode = Off;
         activePolygon->Lines << QLine(activePolygon->Points.last(), activePolygon->Points.first());
@@ -65,7 +80,7 @@ bool ScreenState::handleCreatePolygonClick(const QPoint &clickedPosition)
 
     for(auto polIt = Polygons.begin(); polIt != Polygons.end(); ++polIt)
         for(auto lineIt = polIt->Lines.begin(); lineIt != polIt->Lines.end(); ++lineIt)
-            if(distance(clickedPosition, *lineIt) < MINDIST) return false;
+            if(distance(clickedPosition, *lineIt) < LINEBORDER) return false;
 
     if (settings.activeMode==Off)
     {
@@ -87,31 +102,28 @@ bool ScreenState::handleCreatePolygonClick(const QPoint &clickedPosition)
 
 bool ScreenState::handleInsertVertexClick(const QPoint &clickedPosition)
 {
-    if(detectClickedPoint(clickedPosition) != NULL)
-        return false;
-    Polygon *polygon = detectClickedPolygon(clickedPosition);
-
-    if(polygon==NULL)
+    Entity ent = detectClickedEntity(clickedPosition);
+    // no polygon detected, or click is too close to existing point
+    if(ent.line == NULL)
         return false;
 
-    QLine* line = detectClickedLine(clickedPosition);
-
-    if(line==NULL)
-        return false;
-    deleteFromLengths(line);
-    deleteFromRelation(line);
-    QPointF nearestF = nearestPoint(*line, clickedPosition);
+    deleteFromLengths(ent.line);
+    deleteFromRelation(ent.line);
+    QPointF nearestF = nearestPoint(*ent.line, clickedPosition);
     QPoint nearest = QPoint(nearestF.x(), nearestF.y());
 
+    int lineIndex = ent.polygon->Lines.indexOf(*ent.line);
     // update Points
-    polygon->Points.insert(polygon->Points.indexOf(line->p2()), nearest);
-    QPoint oldFirstPoint = line->p1();
-    line->setP1(nearest);
+    ent.polygon->Points.insert(lineIndex+1, nearest);
+    // insert
+    QPoint oldSecondPoint = ent.line->p2();
+    ent.line->setP2(nearest);
 
-    // insert new line before old line
-    int clickedIndex = polygon->Lines.indexOf(*line);
-    polygon->Lines.insert(clickedIndex, QLine(oldFirstPoint, nearest));
-    // TODO: run polygon correcting and maybe remove constraints
+    QLine newLine(nearest, oldSecondPoint);
+
+    // insert new line after clicked one
+    int clickedIndex = ent.polygon->Lines.indexOf(*ent.line);
+    ent.polygon->Lines.insert(clickedIndex+1, newLine);
     return true;
 }
 
@@ -122,7 +134,7 @@ bool ScreenState::handleMovePolygonClick(const QPoint &clickedPosition)
         activePolygon = NULL;
         return false;
     }
-    activePolygon = detectClickedPolygon(clickedPosition);
+    activePolygon = detectClickedEntity(clickedPosition).polygon;
     if(activePolygon!=NULL) startPoint = clickedPosition;
     return false;
 }
@@ -138,75 +150,56 @@ bool ScreenState::handleMoveLineVertexClick(const QPoint &clickedPosition)
        return false;
     }
 
-    activePolygon = detectClickedPolygon(clickedPosition);
+    Entity ent = detectClickedEntity(clickedPosition);
+    activePolygon = ent.polygon;
     if(activePolygon == NULL)
         return false;
 
-    QPoint* point = detectClickedPoint(clickedPosition);
+    settings.activeMode=On;
+
+    QPoint* point = ent.point;
+    // point clicked
     if(point!=NULL)
     {
-        settings.activeMode=On;
         activePoint = point;
         lastPoint = clickedPosition;
-        // neighbour lines are at index and index-1 positions
         int index = activePolygon->Points.indexOf(*activePoint);
-        if(index!=0)
-        {
-            neighbourLines[0] = &activePolygon->Lines[index-1];
-            neighbourLines[1] = &activePolygon->Lines[index];
-        }
-        else
+        if(index==0)
         {
             neighbourLines[0] = &activePolygon->Lines[activePolygon->Lines.size()-1];
             neighbourLines[1] = &activePolygon->Lines[0];
         }
-        return false;
+        else
+        {
+            neighbourLines[0] = &activePolygon->Lines[index-1];
+            neighbourLines[1] = &activePolygon->Lines[index];
+        }
     }
-
-    QLine* line = detectClickedLine(clickedPosition);
-    if(line!=NULL)
+    else
     {
-        settings.activeMode=On;
+        QLine* line = ent.line;
         activeLine = line;
         lastPoint = clickedPosition;
-        int indexp1 = activePolygon->Points.indexOf(activeLine->p1());
-        int indexp2 = activePolygon->Points.indexOf(activeLine->p2());
-        if(indexp1 < indexp2)
-        {
-            neighbourPoints[0] = &activePolygon->Points[indexp1];
-            neighbourPoints[1] = &activePolygon->Points[indexp2];
-        }
-        else
-        {
-            neighbourPoints[0] = &activePolygon->Points[indexp2];
-            neighbourPoints[1] = &activePolygon->Points[indexp1];
-        }
-
         int indexClickedLine = activePolygon->Lines.indexOf(*line);
         int linesVectorSize = activePolygon->Lines.size();
-        if(indexClickedLine==0)
-        {
-            neighbourLines[0] = &activePolygon->Lines[linesVectorSize-1];
-            neighbourLines[1] = &activePolygon->Lines[1];
-        }
-        else if(indexClickedLine==linesVectorSize-1)
-        {
-            neighbourLines[0] = &activePolygon->Lines[linesVectorSize-2];
-            neighbourLines[1] = &activePolygon->Lines[0];
-        }
-        else
-        {
-            neighbourLines[0] = &activePolygon->Lines[indexClickedLine-1];
-            neighbourLines[1] = &activePolygon->Lines[indexClickedLine+1];
-        }
-    }
 
+        neighbourPoints[0] = &activePolygon->Points[indexClickedLine];
+        int indexSecondPoint = indexClickedLine +1 >= linesVectorSize ? 0 : indexClickedLine+1;
+        neighbourPoints[1] = &activePolygon->Points[indexSecondPoint];
+
+        int firstLineIndex = indexClickedLine == 0 ? linesVectorSize-1 : indexClickedLine-1;
+        int secondLineIndex = indexClickedLine == linesVectorSize-1 ? 0 : indexClickedLine+1;
+
+        neighbourLines[0] = &activePolygon->Lines[firstLineIndex];
+        neighbourLines[1] = &activePolygon->Lines[secondLineIndex];
+    }
     return false;
 }
 
 bool ScreenState::handleSetLengthClick(const QPoint &clickedPosition)
 {
-    QLine* clickedLine = detectClickedLine(clickedPosition);
+
+    QLine* clickedLine = detectClickedEntity(clickedPosition).line;
     if(clickedLine == NULL) return false;
 
     QDialog *dialog = new QDialog;
@@ -238,6 +231,7 @@ bool ScreenState::handleSetLengthClick(const QPoint &clickedPosition)
             Lengths << std::make_pair(clickedLine, result);
 
         dialog->accept();
+        fixPolygons();
     });
 
     QGridLayout *dialogLayout = new QGridLayout(dialog);
@@ -253,7 +247,7 @@ bool ScreenState::handleSetLengthClick(const QPoint &clickedPosition)
 
 bool ScreenState::handleAddRelationClick(const QPoint &clickedPosition)
 {
-    QLine* clickedLine = detectClickedLine(clickedPosition);
+    QLine* clickedLine = detectClickedEntity(clickedPosition).line;
     if(clickedLine == NULL) return false;
 
     if(settings.activeMode==Off)
@@ -267,12 +261,13 @@ bool ScreenState::handleAddRelationClick(const QPoint &clickedPosition)
     settings.activeMode=Off;
     Relations << std::make_pair(activeLineRelation, clickedLine);
     activeLineRelation = NULL;
+    fixPolygons();
     return true;
 }
 
 bool ScreenState::handleUnsetLengthClick(const QPoint &clickedPosition)
 {
-    QLine* line = detectClickedLine(clickedPosition);
+    QLine* line = detectClickedEntity(clickedPosition).line;
     return deleteFromLengths(line);
 }
 
@@ -282,7 +277,7 @@ bool ScreenState::deleteFromLengths(QLine *line)
         return false;
 
     for(int i=0; i<Lengths.size(); i++)
-        if(Lengths[i].first==line)
+        if(Lengths[i].first == line)
         {
             Lengths.removeAt(i);
             return true;
@@ -319,54 +314,38 @@ bool ScreenState::deletePolygonObject(Polygon *p)
 
 bool ScreenState::handleDeleteRelationClick(const QPoint &clickedPosition)
 {
-    QLine* line = detectClickedLine(clickedPosition);
+    QLine* line = detectClickedEntity(clickedPosition).line;
     return deleteFromRelation(line);
 }
 
 bool ScreenState::handleDeleteVertexClick(const QPoint &clickedPosition)
 {
-    QPoint* point = detectClickedPoint(clickedPosition);
-    if(point == NULL)
+    Entity ent = detectClickedEntity(clickedPosition);
+    if(ent.point == NULL)
         return false;
 
-    Polygon* polygon = detectClickedPolygon(clickedPosition);
-    if(polygon==NULL)
-        return false;
+    if(ent.polygon->Lines.size()<=3)
+        return deletePolygonObject(ent.polygon);
 
-    if(polygon->Lines.size()<=3)
-        return deletePolygonObject(polygon);
+    int indexLineAfter = ent.polygon->Points.indexOf(*ent.point);
+    int indexLineBefore = indexLineAfter == 0 ? ent.polygon->Points.size() - 1 : indexLineAfter-1;
 
-    QLine* l1 ,*l2;
-    int i = 0;
-    for(; i<polygon->Lines.size(); i++)
-    {
-        if(polygon->Lines[i].p2() == *point)
-        {
-            l1 = &polygon->Lines[i];
-            if(i==polygon->Lines.size()-1)
-                i=0;
-            else
-                i++;
+    deleteFromRelation(&ent.polygon->Lines[indexLineBefore]);
+    deleteFromRelation(&ent.polygon->Lines[indexLineAfter]);
+    deleteFromLengths(&ent.polygon->Lines[indexLineBefore]);
+    deleteFromLengths(&ent.polygon->Lines[indexLineAfter]);
 
-            l2 = &polygon->Lines[i];
-            break;
-        }
-    }
+    ent.polygon->Points.removeOne(*ent.point);
+    ent.polygon->Lines[indexLineBefore].setP2(ent.polygon->Lines[indexLineAfter].p2());
+    ent.polygon->Lines.removeAt(indexLineAfter);
 
-    if(!l1 || !l2 )
-        return false;
-    QLine newLine(l1->p1(), l2->p2());
-    polygon->Lines.insert(i, newLine);
-
-    polygon->Points.removeOne(*point);
-    polygon->Lines.removeOne(*l1);
-    polygon->Lines.removeOne(*l2);
+    fixPolygons();
     return true;
 }
 
 bool ScreenState::handleDeletePolygonClick(const QPoint &clickedPosition)
 {
-    Polygon* p = detectClickedPolygon(clickedPosition);
+    Polygon* p = detectClickedEntity(clickedPosition).polygon;
     if(p==NULL) return false;
     return deletePolygonObject(p);
 }
@@ -435,15 +414,6 @@ bool ScreenState::handleMovePolygonMove(const QPoint &newPosition)
 
 bool ScreenState::handleMoveLineVertexMove(const QPoint &newPosition)
 {
-    // TODO
-    //Opcje: przesuniety wierzchołek, lub dwa wierzchołki. One są nietykalne. Żaden wierzchołek -np. dodanie relacji
-    //przesunięty wierzchołek - poprawiamy dwa wierzchołki koło niego we wszystkie strony po raz.
-    //sprawdzamy za każdym razem wskaźnik zepsucia dla całej sceny.
-    //jesli nic sie nie poprawilo, nie przeusuwam i usuwam wierzcholek z listy do obrobienia
-    //jesli sie poprawilo, wybieram to ustawienie gdzie się poprawiło najbardziej i jeśli sąsiednie boki
-    //są w jakiś relacjach to wywołuje dla nich poprawianie
-    //jeśli
-    // dwa wskaźniki: wskaźnik zepsucia kąta, wskaźnik zepsucia długości.
     if(settings.activeMode==Off)
         return false;
 
@@ -464,6 +434,10 @@ bool ScreenState::handleMoveLineVertexMove(const QPoint &newPosition)
     neighbourLines[1]->setP1(neighbourLines[1]->p1()+=diff);
 
     lastPoint = newPosition;
+    if(activePoint!=NULL)
+        fixPolygons(activePoint);
+    else
+        fixPolygons(neighbourPoints[0], neighbourPoints[1]);
     return true;
 }
 
@@ -482,5 +456,73 @@ bool ScreenState::handleMoveEvent(const QPoint &newPosition)
 
     default:
         return false;
+    }
+}
+
+void ScreenState::moveVertex(Polygon *p, int index, const QPoint &offset)
+{
+
+    QPoint newPoint = (p->Points[index] += offset);
+    p->Lines[index].setP1(newPoint);
+    p->Lines[index==0 ? p->Lines.size()-1 : index - 1].setP2(newPoint);
+}
+
+double ScreenState::calculateError()
+{
+    double sum = 0;
+    for(int i=0; i<Relations.size(); i++)
+        sum+=abs(algorithms::findAngle(*Relations[i].first, *Relations[i].second))*10000;
+
+    for(int i=0; i<Lengths.size(); i++)
+        sum+=abs(distance(Lengths[i].first->p1(), Lengths[i].first->p2()) - Lengths[i].second);
+    return sum;
+}
+
+void ScreenState::fixPolygons(QPoint* protectedPointA, QPoint* protectedPointB)
+{
+    int currentError = calculateError();
+
+    bool changed = true;
+
+    QPoint offsets[] = {QPoint(-1,-1), QPoint(-1, 0), QPoint(-1, 1), QPoint(0, -1),
+                        QPoint(0, 1), QPoint(1, -1), QPoint(1, 0), QPoint(1, 1)};
+    // this is helper to iterate through every point
+    QPoint offsetHelpers[] = {QPoint(-1,-1), QPoint(0, 1), QPoint(0, 1), QPoint(1, -2),
+                              QPoint(0, 2), QPoint(1, -2), QPoint(0, 1), QPoint(0, 1),
+                              QPoint(-1,-1)};
+
+    while(currentError>THRESHOLD && changed == true)
+    {
+        changed = false;
+        for(int i=0; i<Polygons.size(); i++)
+            for(int j=0; j<Polygons[i].Points.size(); j++)
+            {
+                if(protectedPointA != NULL && Polygons[i].Points[j] == *protectedPointA
+                        || protectedPointB != NULL && Polygons[i].Points[j] == *protectedPointB)
+                    continue;
+
+                int Index = 0;
+                double bestError = currentError;
+                for(int z = 0; z<8; z++)
+                {
+                    // move vertex in 8 sides
+                    moveVertex(&Polygons[i], j, offsetHelpers[z]);
+                    int err = calculateError();
+                    if(err < bestError)
+                    {
+                        Index = z;
+                        bestError = err;
+                    }
+                }
+                // move to default position
+                moveVertex(&Polygons[i], j, offsetHelpers[8]);
+                // move to new position
+                if(currentError - bestError > 0.1)
+                {
+                    moveVertex(&Polygons[i], j, offsets[Index]);
+                    currentError = bestError;
+                    changed = true;
+                }
+            }
     }
 }

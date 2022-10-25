@@ -7,12 +7,23 @@
 #include <QDialog>
 #include <QLabel>
 
+#define POINTRADIUS 10
+#define LINETHICKNESS 1
+#define LINEBORDER 20
+#define THRESHOLD 1
+
+struct Entity
+{
+    Polygon* polygon = NULL;
+    QLine* line = NULL;
+    QPoint* point = NULL;
+};
+
 
 class ScreenState
 {
 public:
     ScreenState();
-    void fixPolygons();
     bool handleClickEvent(const QPoint &clickedPosition);
     bool handleMoveEvent(const QPoint &movePosition);
 
@@ -34,13 +45,15 @@ private:
     QLine* neighbourLines[2];
     QPoint* neighbourPoints[2];
 
-    Polygon* detectClickedPolygon(const QPoint &point);
-    QLine* detectClickedLine(const QPoint &point);
-    QPoint *detectClickedPoint(const QPoint &point);
+    Entity detectClickedEntity(const QPoint &point);
 
     bool deleteFromRelation(QLine *line);
     bool deleteFromLengths(QLine *line);
     bool deletePolygonObject(Polygon *p);
+
+    void moveVertex(Polygon *p, int index, const QPoint& offset);
+    double calculateError();
+    void fixPolygons(QPoint* protectedPointA=NULL, QPoint* protectedPointB=NULL);
 
 
     // handlers
