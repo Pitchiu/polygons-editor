@@ -1,2 +1,2 @@
-# polygons_editor
-Project created using qt toolkit.
+# polygons-editor
+Polygons graphic editor created using Qt5 toolkit.
